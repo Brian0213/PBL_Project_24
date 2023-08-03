@@ -83,7 +83,7 @@ Creating the locals.tf file for local variables because Terraform does not allow
 
 11. Create file – provider.tf
 
-[Provides Tf](./Screenshots/providers-tf.png)
+[Providers Tf](./Screenshots/providers-tf.png)
 
 12. Create a file – variables.tfvars to set values for variables.
 
@@ -136,3 +136,185 @@ Run the init and plan again – This time you will see:
 `aws eks update-kubeconfig --name tooling-app-eks --region eu-west-1 --kubeconfig kubeconfig`
 
 [Terraform Init Apply](./Screenshots/kubeconfig.png)
+
+#### DEPLOY APPLICATIONS WITH HELM
+
+In Project 22, you experienced the use of manifest files to define and deploy resources like pods, deployments, and services into Kubernetes cluster. Here, you will do the same thing except that it will not be passed through kubectl. In the real world, Helm is the most popular tool used to deploy resources into kubernetes. That is because it has a rich set of features that allows deployments to be packaged as a unit. Rather than have multiple YAML files managed individually – which can quickly become messy.
+
+A Helm chart is a definition of the resources that are required to run an application in Kubernetes. Instead of having to think about all of the various deployments/services/volumes/configmaps/ etc that make up your application, you can use a command like:
+
+`helm install stable/mysql`
+
+Fetching the script:$ `curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3`
+Changing the permission of the script:$ `chmod 700 get_helm.sh`
+Executing the script:$ `./get_helm.sh`
+
+[Helm Install](./Screenshots/helm-install.png)
+
+Lets begin to gradually walk through how to use Helm (Credit – https://andrewlock.net/series/deploying-asp-net-core-applications-to-kubernetes/)
+Parameterising YAML manifests using Helm templates
+Let’s consider that our Tooling app have been Dockerised into an image called tooling-app, and that you wish to deploy with Kubernetes. Without helm, you would create the YAML manifests defining the deployment, service, and ingress, and apply them to your Kubernetes cluster using kubectl apply. Initially, your application is version 1, and so the Docker image is tagged as tooling-app:1.0.0. A simple deployment manifest might look something like the following:
+
+[Helm Install](./Screenshots/helm-install.png)
+
+Now lets imagine you produce another version of your app, version 1.1.0. How do you deploy that? Assuming nothing needs to be changed with the service or ingress, it may be as simple as copying the deployment manifest and replacing the image defined in the spec section. You would then re-apply this manifest to the cluster, and the deployment would be updated, performing a rolling-update as I described in my first post.
+
+The main problem with this is that all of the values specific to your application – the labels and the image names etc – are mixed up with the "mechanical" definition of the manifest.
+
+Helm tackles this by splitting the configuration of a chart out from its basic definition. For example, instead of baking the name of your app or the specific container image into the manifest, you can provide those when you install the chart into the cluster.
+
+For example, a simple templated version of the previous deployment might look like the following:
+
+[Helm Install](./Screenshots/helm-install.png)
+
+This example demonstrates a number of features of Helm templates:
+
+The template is based on YAML, with {{ }} mustache syntax defining dynamic sections.
+Helm provides various variables that are populated at install time. For example, the {{.Release.Name}} allows you to change the name of the resource at runtime by using the release name. Installing a Helm chart creates a release (this is a Helm concept rather than a Kubernetes concept).
+You can define helper methods in external files. The {{template "name"}} call gets a safe name for the app, given the name of the Helm chart (but which can be overridden). By using helper functions, you can reduce the duplication of static values (like tooling-app), and hopefully reduce the risk of typos.
+
+You can manually provide configuration at runtime. The {{.Values.image.name}} value for example is taken from a set of default values, or from values provided when you call helm install. There are many different ways to provide the configuration values needed to install a chart using Helm. Typically, you would use two approaches:
+
+A values.yaml file that is part of the chart itself. This typically provides default values for the configuration, as well as serving as documentation for the various configuration values.
+
+When providing configuration on the command line, you can either supply a file of configuration values using the -f flag. We will see a lot more on this later on.
+
+Now lets setup Helm and begin to use it.
+
+According to the official documentation here, there are different options to installing Helm. But we will build the source code to create the binary.
+
+1. Download the tar.gz file from the project’s Github release page. Or simply use wget to download version 3.6.3 directly
+
+`wget https://github.com/helm/helm/archive/refs/tags/v3.6.3.tar.gz`
+
+2. Unpack the tar.gz file
+
+`tar -zxvf v3.6.3.tar.gz`
+
+3. cd into the unpacked directory:
+
+`cd helm-3.6.3`
+
+4. Build the source code using make utility:
+
+`make build`
+
+If you do not have make installed or for any other reason, you cannot install the tool, simply use the official documentation here for other options.
+
+5. Helm binary will be in the bin folder. Simply move it to the bin directory on your system. You cna check other tools to know where that is. fOr example, check where pwd utility is being called from by running which pwd. Assuming the output is /usr/local/bin. You can move the helm binary there.
+
+`sudo mv bin/helm /usr/local/bin/`
+
+6. Check that Helm is installed:
+
+`helm version`
+
+[Helm Install](./Screenshots/helm-version.png)
+
+##### DEPLOY JENKINS WITH HELM
+
+Before we begin to develop our own helm charts, lets make use of publicly available charts to deploy all the tools that we need.
+
+One of the amazing things about helm is the fact that you can deploy applications that are already packaged from a public helm repository directly with very minimal configuration. An example is Jenkins.
+
+1. Visit Artifact Hub to find packaged applications as Helm Charts
+
+2. Search for Jenkins
+
+3. Add the repository to helm so that you can easily download and deploy:
+
+`helm repo add jenkins https://charts.jenkins.io`
+
+[Jenkins Add To Helm](./Screenshots/jenkins-add-helm.png)
+
+4. Update helm repo:
+
+`helm repo update`
+
+[Helm Update](./Screenshots/helm-update.png)
+
+5. Install the chart
+
+`helm install myjenkins jenkins/jenkins --kubeconfig kubeconfig`
+
+[Helm Jenkins Sync](./Screenshots/helm-install-jenkins.png)
+
+6. Check the Helm deployment:
+
+Running some commands
+
+`helm ls --kubeconfig kubeconfig`
+
+[Helm Jenkins Sync](./Screenshots/helm-ls-kubeconfig.png)
+
+Check Pods:
+
+`kubectl get pods --kubeconfig kubeconfig`
+
+
+
+
+Deploying Artifactory With Helm:
+
+`helm repo add jfrog https://charts.jfrog.io`
+
+`helm repo update`
+
+[Helm Artifactory](./Screenshots/helm-artifactory.png)
+
+Installing the chart:
+
+`helm upgrade --install artifactory --namespace artifactory jfrog/artifactory`
+
+[Install Artifactory Chart](./Screenshots/install-artifactory.png)
+
+Deploying Hashicorp Vault With Helm:
+
+- Adding the Hashicorp's repository to helm:
+
+`helm repo add hashicorp https://helm.releases.hashicorp.com`
+
+- Updating helm repo:
+
+`helm repo update`
+
+- Installing the chart:
+
+`helm install vault hashicorp/vault`
+
+[Install Hashicorp Chart](./Screenshots/install-hashicorp.png)
+
+- Inspecting the installation:
+
+`alias k=kubectl`
+
+`k get pod`
+
+`k get svc`
+
+[Install Hashicorp Chart](./Screenshots/install-output.png)
+
+
+
+Deploying Prometheus With Helm:
+
+- Adding the prometheus's repository to helm:
+
+`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts`
+
+`helm repo update`
+
+[Install Prometheus](./Screenshots/helm-prometheus.png)
+
+`helm install myprometheus prometheus-community/prometheus`
+
+[Install Prometheus](./Screenshots/prometheus1.png)
+
+[Install Prometheus](./Screenshots/prometheus2.png)
+
+Inspecting the installation shows that there are various pods and services created
+
+Port forwarding to access prometheus for alert manager from the UI:
+
+
+
