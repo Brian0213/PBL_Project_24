@@ -211,6 +211,40 @@ If you do not have make installed or for any other reason, you cannot install th
 
 [Helm Install](./Screenshots/helm-version.png)
 
+Bootstrapping Cluster with Kop:
+
+`curl -Lo kops https://github.com/kubernetes/kops/releases/download/$(curl -s https://api.github.com/repos/kubernetes/kops/releases/latest | grep tag_name | cut -d '"' -f 4)/kops-linux-amd64`
+
+`chmod +x kops`
+
+`sudo mv kops /usr/local/bin/kops`
+
+`aws s3api create-bucket \
+on eu-west-1>     --bucket terraform-prj24-plan \
+>     --region eu-west-1`
+
+[Kop Deploy](./Screenshots/Kop-deploy1.png)
+
+`export NAME=myfirstcluster.k8s.local`
+
+`export KOPS_STATE_STORE=s3://terra-form-prj24`
+
+`kops create cluster     --name=${NAME}     --cloud=aws     --zones=eu-west-1a     --state=$KOPS_STATE_STORE`
+
+[Kop Cluster](./Screenshots/Kop-cluster1.png)
+
+[Kop Cluster](./Screenshots/Kop-cluster-end.png)
+
+Configure the Cluster:
+
+`kops edit cluster myfirstcluster.k8s.local`
+
+`kops update cluster --name myfirstcluster.k8s.local --yes --admin`
+
+[Kop Cluster Configure](./Screenshots/Kop-cluster-config1.png)
+
+[Kop Cluster Configure](./Screenshots/Kop-cluster-config2.png)
+
 ##### DEPLOY JENKINS WITH HELM
 
 Before we begin to develop our own helm charts, lets make use of publicly available charts to deploy all the tools that we need.
@@ -251,6 +285,33 @@ Check Pods:
 
 `kubectl get pods --kubeconfig kubeconfig`
 
+`helm ls`
+
+[Helm Jenkins Sync](./Screenshots/helm-ls.png)
+
+`kubectl get pods`
+
+`kubectl describe pod myjenkins-0`
+
+[Kubectl MyJenkins](./Screenshots/kube-getpods-describe-myjenkins.png)
+
+[Kubectl MyJenkins](./Screenshots/kube-getpods-describe-myjenkins2.png)
+
+- MyJenkins log
+
+`kubectl logs myjenkins-0`
+
+[Kubectl Log MyJenkins](./Screenshots/kube-log-myjenkins.png)
+
+[Kubectl Log MyJenkins](./Screenshots/kube-log-myjenkins2.png)
+
+`kubectl exec --namespace default -it svc/myjenkins -c jenkins -- /bin/cat /run/secrets/additional/chart-admin-password && echoWsv0lDEWcOFVdZ9f32Kxfy`
+
+`kubectl --namespace default port-forward svc/myjenkins 8080:8080`
+
+[Jenkins](./Screenshots/jenkins-launch.png)
+
+[Jenkins](./Screenshots/jenkins-url.png)
 
 
 
